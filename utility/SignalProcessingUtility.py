@@ -389,3 +389,12 @@ def waveletTimeFrequency(data, freq, ma=1, w=6, fs=100):
             else:
                 power[:,i] = np.mean(power[:,i-ma:i+ma],axis=1)
     return dict({"Time": np.array(range(len(data)))/fs,"Frequency": freq, "Power": power, "logPower": 10*np.log10(power)})
+
+def calculateMissingLabel(missing, threshold=0, window=2.0, overlap=1.0, fs=100):
+    window = int(window * fs)
+    overlap = int(overlap * fs)
+    epochs = getIndices(len(missing),window,overlap)
+    missing_label = np.ndarray((len(epochs)), dtype=bool)
+    for index in range(len(epochs)):
+        missing_label[index] = np.mean(missing[epochs[index]:epochs[index]+window]) > threshold
+    return missing_label
