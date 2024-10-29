@@ -122,7 +122,7 @@ def encodeUFVTK(nii, filename):
         # Raw Image Matrx, big endian 16-bit int with MATLAB's Column-wise Ordering
         file.write(swap16buffer(vtkImage))
 
-def computeTransformMatrix(xfrm):
+def computeTransformMatrix(xfrm, translation=np.zeros(3)):
     """
     Convert UFVTK xfrm field to standard Transformation Matrix (3D)
 
@@ -134,10 +134,10 @@ def computeTransformMatrix(xfrm):
     """
     rotateMat = np.array([xfrm[2,[1,0,2]],xfrm[1,[1,0,2]],xfrm[3,[1,0,2]]])
     rotationVec = Rotation.from_matrix(rotateMat).as_euler("xyz",degrees=True)
-    translationVec = xfrm[0,:] @ xfrm[1:4,:].T
+    translationVec = (xfrm[0,:] @ xfrm[1:4,:].T) + translation
     scaleVec = xfrm[-1,[1,0,2]]
-    tform = computeTransformationMatrix(scaleVec, translationVec[[1,0,2]]*[1,1,1], rotationVec*[-1,-1,1])
-    return tform.T
+    tform = computeTransformationMatrix(scaleVec, translationVec[[1,0,2]]*[-1,-1,-1], rotationVec*[-1,-1,-1])
+    return tform
 
 def loadCRW(filename):
     """
@@ -246,8 +246,9 @@ def makeNifTi(info, img):
     nii (nibabel.nifti1.NifTi1Image): Nibabel NifTi1 object.
     """
     
-    tform = computeTransformMatrix(info["xfrm"])
-    tform[:3,-1] += info["pixelOrigin"]
+    #tform = computeTransformMatrix(info["xfrm"])
+    tform = np.eye(4)
+    tform[:3,-1] += (info["pixelOrigin"])
 
     header = nib.Nifti1Header()
     header.set_qform(tform)
@@ -342,14 +343,20 @@ def antsApplyTransform(INPUT_IMAGE, OUTPUT_IMAGE, TRANSFORMATION_MAT, referenceI
         -u short \ 
         -t [TRANSFORMATION_MAT,0]
     """
-    if not referenceImage:
-        subprocess.call(f"antsApplyTransforms -i {INPUT_IMAGE} -o {OUTPUT_IMAGE} \
-                        -r {INPUT_IMAGE} -u {format} -t [{TRANSFORMATION_MAT},{transformType}]",
-                    shell=True)
+    command = f"antsApplyTransforms -i {INPUT_IMAGE} -o {OUTPUT_IMAGE} \
+                    -u {format}"
+    if type(TRANSFORMATION_MAT) == list:
+        for i in range(len(TRANSFORMATION_MAT)):
+            command += f" -t [{TRANSFORMATION_MAT[i]},{transformType[i]}]"
     else:
-        subprocess.call(f"antsApplyTransforms -i {INPUT_IMAGE} -o {OUTPUT_IMAGE} \
-                        -r {referenceImage} -u {format} -t [{TRANSFORMATION_MAT},{transformType}]",
-                    shell=True)
+        command += f" -t [{TRANSFORMATION_MAT},{transformType}]"
+        
+    if not referenceImage:
+        command += f" -r {INPUT_IMAGE}"
+    else:
+        command += f" -r {referenceImage}"
+
+    subprocess.call(command, shell=True)
 
 def generateANTsTransformation(tform, filename):
     rotateMat = np.array(tform[:3,:3])

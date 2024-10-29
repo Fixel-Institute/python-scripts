@@ -25,12 +25,18 @@ def decodeAppleWatchStructureRaw(rawBytes):
 
     while currentIndex < len(rawBytes)-1:
         DataType = rawBytes[currentIndex]
-        if DataType == 80:
+        if DataType == 79:
             DataValues = np.frombuffer(rawBytes[currentIndex+2:currentIndex+8], np.int16, count=3) / 1000
-            Timestamp = np.frombuffer(rawBytes[currentIndex+8:currentIndex+12], np.float32, count=1)[0] + referenceTimestamp
+            Timestamp = np.frombuffer(rawBytes[currentIndex+8:currentIndex+16], np.float64, count=1)[0] + referenceTimestamp
             Data["Accelerometer"]["Time"].append(Timestamp)
             Data["Accelerometer"]["Data"].append(DataValues)
-            currentIndex += 12
+            currentIndex += 16
+        elif DataType == 80:
+            DataValues = np.frombuffer(rawBytes[currentIndex+2:currentIndex+8], np.int16, count=3) / 1000
+            Timestamp = np.frombuffer(rawBytes[currentIndex+8:currentIndex+16], np.float64, count=1)[0] + referenceTimestamp
+            Data["Accelerometer"]["Time"].append(Timestamp)
+            Data["Accelerometer"]["Data"].append(DataValues)
+            currentIndex += 16
         elif DataType == 81:
             DataValues = np.frombuffer(rawBytes[currentIndex+1:currentIndex+7], np.int8, count=6) / 100
             TimeRange = np.frombuffer(rawBytes[currentIndex+8:currentIndex+10], np.uint16, count=1)[0]
@@ -103,7 +109,7 @@ def decodeAppleWatchStructure(filenames):
     else:
         listOfFiles = filenames
     
-    Data = {"DeviceID": Headers, "Accelerometer": {"Time": [], "Data": []}, 
+    Data = {"DeviceID": "", "Accelerometer": {"Time": [], "Data": []}, 
             "TremorSeverity": {"Time": [], "TimeRange": [], "Data": []}, 
             "DyskineticProbability": {"Time": [], "TimeRange": [], "Data": []}, 
             "HeartRate": {"Time": [], "TimeRange": [], "Data": [], "MotionContext": []}, 
@@ -113,16 +119,23 @@ def decodeAppleWatchStructure(filenames):
     for filename in listOfFiles:
         with open(filename, "rb") as fid:
             rawBytes = fid.read()
-            
+        
         currentIndex = 72
         Headers = rawBytes[:currentIndex].decode("utf-8").rstrip("\x00")
+        Data["DeviceID"] = Headers
         
         referenceTimestamp = np.frombuffer(rawBytes[currentIndex:currentIndex+8], np.float64, count=1)[0]
         currentIndex += 8
 
         while currentIndex < len(rawBytes)-1:
             DataType = rawBytes[currentIndex]
-            if DataType == 80:
+            if DataType == 79:
+                DataValues = np.frombuffer(rawBytes[currentIndex+2:currentIndex+8], np.int16, count=3) / 1000
+                Timestamp = np.frombuffer(rawBytes[currentIndex+8:currentIndex+16], np.float64, count=1)[0] + referenceTimestamp
+                Data["Accelerometer"]["Time"].append(Timestamp)
+                Data["Accelerometer"]["Data"].append(DataValues)
+                currentIndex += 16
+            elif DataType == 80:
                 DataValues = np.frombuffer(rawBytes[currentIndex+2:currentIndex+8], np.int16, count=3) / 1000
                 Timestamp = np.frombuffer(rawBytes[currentIndex+8:currentIndex+12], np.float32, count=1)[0] + referenceTimestamp
                 Data["Accelerometer"]["Time"].append(Timestamp)
