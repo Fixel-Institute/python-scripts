@@ -404,7 +404,7 @@ class BRAVOPlatformRequest_Legacy:
         
     def RequestAverageNeuralActivitiesRaw(self, PatientID):
         form = {"id": PatientID, "requestRaw": True}
-        response = requests.post(self.__Server + "/api/requestAverageNeuralActivity", json.dumps(form), headers=self.__Headers)
+        response = requests.post(self.__Server + "/api/queryAverageNeuralActivity", json.dumps(form), headers=self.__Headers)
         if response.status_code == 200:
             payload = response.json()
             return payload
